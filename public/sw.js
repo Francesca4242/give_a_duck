@@ -1,5 +1,5 @@
 /* Offline support. Bump VERSION whenever files change so phones pick up the new build. */
-const VERSION = "gad-v3";
+const VERSION = "gad-v4";
 const CORE = [
   "./", "index.html", "manifest.webmanifest", "css/style.css",
   "js/ui.js", "js/content.js", "js/content-more.js", "js/online.js", "vendor/qrcode.js", "js/duck.js", "js/main.js", "js/install.js",
@@ -23,7 +23,7 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (url.origin === location.origin) {
     e.respondWith(
-      fetch(req).then((res) => {
+      fetch(req, { cache: "no-cache" }).then((res) => {
         const copy = res.clone();
         caches.open(VERSION).then((c) => c.put(req, copy));
         return res;

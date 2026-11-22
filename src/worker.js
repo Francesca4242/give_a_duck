@@ -6,7 +6,6 @@ import { Room } from "./room.js";
 import STATIC from "./static.gen.js";
 export { Room };
 
-const NO_CACHE = new Set(["/", "/index.html", "/sw.js", "/manifest.webmanifest"]);
 function serveStatic(req, url) {
   let path = url.pathname === "/" ? "/index.html" : url.pathname;
   let f = STATIC[path];
@@ -14,7 +13,7 @@ function serveStatic(req, url) {
   const headers = {
     "content-type": f.type,
     etag: f.etag,
-    "cache-control": NO_CACHE.has(path) ? "no-cache" : "public, max-age=3600",
+    "cache-control": path.startsWith("/icons/") ? "public, max-age=86400" : "no-cache", // always revalidate app code (cheap 304s via etag)
     "x-content-type-options": "nosniff",
   };
   if (req.headers.get("if-none-match") === f.etag) return new Response(null, { status: 304, headers });

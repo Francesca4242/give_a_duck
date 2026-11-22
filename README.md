@@ -36,7 +36,7 @@ GitHub Actions deploys automatically on every push to `main` (and you can run it
 | `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard → My Profile → API Tokens → *Create Token* → "Edit Cloudflare Workers" template |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → Account ID (right-hand sidebar) |
 
-The site goes live at `https://give-a-duck.<your-subdomain>.workers.dev`. Add a custom domain in the Cloudflare dashboard if you like.
+The site goes live at `https://i-dont-give-a-duck.<your-subdomain>.workers.dev`. Add a custom domain in the Cloudflare dashboard if you like.
 
 When you change files, bump `VERSION` in `public/sw.js` so installed phones pick up the update.
 
