@@ -1,8 +1,8 @@
 /* Offline support. Bump VERSION whenever files change so phones pick up the new build. */
-const VERSION = "gad-v1";
+const VERSION = "gad-v2";
 const CORE = [
   "./", "index.html", "manifest.webmanifest", "css/style.css",
-  "js/ui.js", "js/content.js", "js/duck.js", "js/main.js", "js/install.js",
+  "js/ui.js", "js/content.js", "js/online.js", "vendor/qrcode.js", "js/duck.js", "js/main.js", "js/install.js",
   "js/games/hat.js", "js/games/scrawl.js", "js/games/goose.js", "js/games/pecking.js", "js/games/quackers.js",
   "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png",
 ];

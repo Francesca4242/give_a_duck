@@ -137,7 +137,14 @@
     window.addEventListener("resize", fit);
     pad.undo = () => { strokes.pop(); redraw(); };
     pad.clear = () => { if (!strokes.length || confirm("Bin the whole drawing?")) { strokes.length = 0; redraw(); } };
-    pad.image = () => { window.removeEventListener("resize", fit); return canvas.toDataURL("image/jpeg", 0.8); };
+    // export small (max 480px wide) so drawings travel quickly over the network
+    pad.image = () => {
+      window.removeEventListener("resize", fit);
+      const w = Math.min(480, canvas.width), out = document.createElement("canvas");
+      out.width = w; out.height = Math.round(w * 0.8);
+      out.getContext("2d").drawImage(canvas, 0, 0, out.width, out.height);
+      return out.toDataURL("image/jpeg", 0.75);
+    };
     fit();
     return pad;
   }
@@ -164,5 +171,6 @@
     draw();
   }
 
+  App.Pad = Pad;
   App.games.scrawl = { start };
 })();

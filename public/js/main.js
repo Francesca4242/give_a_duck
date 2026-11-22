@@ -22,6 +22,14 @@
         <p class="tagline">Silly, slightly filthy party games for a whole flock. One phone, pass it round.</p>
       </div>
 
+      <div class="card online-card">
+        <div class="online-ducks">${["#FFD23F", "#7FDBFF", "#FF9EC4", "#9BE564"].map((b, i) => `<span>${App.duck({ body: b, hat: ["party", "beanie", "crown", "shades"][i], mood: "happy" })}</span>`).join("")}</div>
+        <strong class="oc-title">🌐 Everyone on their own phone</strong>
+        <p class="muted">Start a room, everyone joins with a code or QR. Secret roles stay secret.</p>
+        <div class="play-btns"><button class="btn btn-primary" id="host">Host a room</button><button class="btn" id="joinr">Join a room</button></div>
+      </div>
+
+      <h2 class="section-title">…or pass one phone around</h2>
       <div class="card flock-card">
         <div class="flock-row">${ps.length ? ps.slice(0, 12).map((p) => `<span class="mini">${App.duckFor(p)}</span>`).join("") : `<span class="muted">No ducks yet. Who's playing?</span>`}${ps.length > 12 ? `<span class="more">+${ps.length - 12}</span>` : ""}</div>
         <div class="flock-meta"><strong>${ps.length} ${ps.length === 1 ? "duck" : "ducks"}</strong> in the flock</div>
@@ -33,7 +41,7 @@
         <div class="setting"><span>Sound</span>${App.chooser("sound", [["true", "🔊 Quacks on"], ["false", "🔇 Off"]], s.sound)}</div>
       </div>
 
-      <h2 class="section-title">Pick a game</h2>
+      <h2 class="section-title">Pick a game (one phone)</h2>
       <div class="games">${GAMES.map((g) => `
         <button class="game-card" data-game="${g.id}">
           <span class="gc-duck">${App.duck(g.look)}</span>
@@ -43,6 +51,8 @@
       <p class="footer-note">Best with 4–20 ducks, a sofa and questionable morals. <button class="link" id="how">How does this work?</button></p>
     </section>`, (el) => {
       $("#flock", el).onclick = () => App.flock();
+      $("#host", el).onclick = () => App.online.host();
+      $("#joinr", el).onclick = () => App.online.join(App.store.get("lastRoom", ""));
       $("#how", el).onclick = howTo;
       App.wireChoosers(el, (name, v) => { s[name] = v === "true"; App.save(); if (name === "sound" && s.sound) App.sound.quack(); });
       let pokes = 0;
@@ -125,5 +135,5 @@
       </section>`);
   }
 
-  document.addEventListener("DOMContentLoaded", () => App.home());
+  document.addEventListener("DOMContentLoaded", () => { if (!App.online.boot()) App.home(); });
 })();

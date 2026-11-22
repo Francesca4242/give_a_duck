@@ -1,7 +1,10 @@
 /* All the words. Every list has a `clean` half and a `cheeky` half.
    Cheeky mode = clean + cheeky. Clean mode = clean only. */
 (function () {
-  const C = (window.App = window.App || {}).content = {};
+  // Shared by the browser (window.App.content) and the Worker (globalThis.GAD_CONTENT).
+  const G = typeof window !== "undefined" ? window : globalThis;
+  const C = (G.App = G.App || {}).content = {};
+  G.GAD_CONTENT = C;
 
   C.quips = [
     "I don't give a duck.",
@@ -213,8 +216,8 @@
   };
 
   /** Merge a {clean, cheeky} source according to cheeky mode. */
-  C.pool = function (src) {
-    const cheeky = App.state.settings.cheeky;
+  C.pool = function (src, cheekyOverride) {
+    const cheeky = cheekyOverride !== undefined ? cheekyOverride : G.App.state.settings.cheeky;
     if (Array.isArray(src.clean)) return cheeky ? src.clean.concat(src.cheeky) : src.clean.slice();
     const out = Object.assign({}, src.clean);
     if (cheeky) Object.assign(out, src.cheeky);
