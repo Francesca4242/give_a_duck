@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>I Don't Give a Duck</title>
+  <meta name="description" content="Silly, slightly filthy party games for a whole flock. One phone, pass it round. Lots of ducks.">
+  <meta name="theme-color" content="#4cc3e8">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <!-- iPhone / iPad home-screen install -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Give a Duck">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="pond-bg" aria-hidden="true">
+    <svg class="waves" viewBox="0 0 1200 120" preserveAspectRatio="none"><path d="M0 60 Q150 20 300 60 T600 60 T900 60 T1200 60 V120 H0Z"/></svg>
+  </div>
+  <main id="app" aria-live="polite"></main>
+  <div id="install" class="install-bar" hidden></div>
+
+  <script src="js/ui.js"></script>
+  <script src="js/content.js"></script>
+  <script src="js/duck.js"></script>
+  <script src="js/games/hat.js"></script>
+  <script src="js/games/scrawl.js"></script>
+  <script src="js/games/goose.js"></script>
+  <script src="js/games/pecking.js"></script>
+  <script src="js/games/quackers.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/install.js"></script>
+</body>
+</html>
