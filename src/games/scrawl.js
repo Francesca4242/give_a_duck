@@ -74,7 +74,7 @@ function advance(R, g) {
   g.roster.forEach((pid) => {
     if (g.subs[pid]) return;
     const c = chainOf(g, pid), type = g.step % 2 === 0 ? "text" : "draw";
-    g.chains[c][g.step] = { by: pid, type, content: type === "text" ? (g.step === 0 ? R.pick(R.C.pool(R.C.scrawl, R.cheeky)) : "🤷 (this duck wandered off)") : null };
+    g.chains[c][g.step] = { by: pid, type, content: type === "text" ? (g.step === 0 ? R.fresh("scrawl", R.C.pool(R.C.scrawl, R.cheeky), 1)[0] : "🤷 (this duck wandered off)") : null };
   });
   g.subs = {};
   g.step++;

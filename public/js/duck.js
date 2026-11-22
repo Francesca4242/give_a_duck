@@ -118,6 +118,7 @@
         <ellipse cx="146" cy="88" rx="9" ry="6" fill="#FF7AA8" opacity=".55"/>
         ${beakShape}
         <g class="eyes">${eyes(o.mood, 140, 62, 9, head)}</g>
+        ${o.brows ? `<g class="brows"><path d="M121 52 Q128 38 140 41 Q152 40 160 49 Q150 45 141 47 Q130 47 121 52Z" fill="${OUT}" stroke="${OUT}" stroke-width="4" stroke-linejoin="round"/></g>` : ""}
         ${hat(o.hat === "shades" || o.hat === "bow" ? "none" : o.hat, hx - 4, hy - hr + 2)}
         ${o.hat === "shades" ? `<g><rect x="122" y="52" width="30" height="18" rx="7" fill="#111" stroke="${OUT}" stroke-width="3"/><rect x="152" y="58" width="10" height="5" fill="#111"/><path d="M127 57 L136 57" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/></g>` : ""}
         ${o.hat === "bow" ? `<g transform="translate(118 108)"><path d="M0 0 L-18 -12 L-18 12Z M0 0 L18 -12 L18 12Z" fill="#E63946" stroke="${OUT}" stroke-width="3.5" stroke-linejoin="round"/><circle r="5" fill="#C1121F" stroke="${OUT}" stroke-width="3"/></g>` : ""}

@@ -9,6 +9,13 @@
   App.esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   App.shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   App.pick = (a) => a[Math.floor(Math.random() * a.length)];
+  /** n picks from pool, avoiding things this phone has seen recently. */
+  App.fresh = (key, pool, n) => {
+    const used = App.store.get("used:" + key, []);
+    const out = App.content.fresh(pool, n, used);
+    App.store.set("used:" + key, used);
+    return out;
+  };
 
   /* ---------- persistence (never required) ---------- */
   App.store = {

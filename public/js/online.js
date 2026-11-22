@@ -36,6 +36,8 @@
       } else if (m.t === "error") {
         toast(m.msg);
         if (m.fatal || !O.s) { O.leave(true); joinScreen(false, O.code); }
+      } else if (m.t === "ink") {
+        if (O.onInk) O.onInk(m);
       } else if (m.t === "kicked") {
         toast("You've been booted from the pond. 🥾");
         O.leave(true); App.home();
@@ -149,6 +151,7 @@
     }
     O.curKey = v.key;
     onDeadline = null;
+    O.onInk = null;
     App.render(v.html, (root) => { v.setup && v.setup(root); v.live && v.live(root); });
     if (v.sound) v.sound(); else App.sound.pop();
   }
@@ -172,6 +175,12 @@
       ["source", "Words from", [["flock", "✍️ Everyone writes"], ["deck", "🎲 Duck Deck"]], o.source ?? "flock"],
       ["perPlayer", "Words each", [2, 3, 4, 5], o.perPlayer ?? 3],
       ["seconds", "Seconds per turn", [30, 45, 60, 90], o.seconds ?? 45],
+      ["rounds", "Rounds", [[3, "3 classic"], [4, "4 + 👀 Eyebrows Only"]], o.rounds ?? 4],
+    ],
+    quackback: () => [],
+    doodle: (o) => [
+      ["seconds", "Drawing time", [[60, "60s"], [80, "80s"], [100, "100s"]], o.seconds ?? 80],
+      ["laps", "Turns each", [1, 2], o.laps ?? 1],
     ],
     scrawl: (o) => [
       ["seconds", "Drawing time", [[45, "45s"], [75, "75s"], [120, "2 min"], [0, "No limit"]], o.seconds ?? 75],
@@ -182,9 +191,9 @@
       ["category", "Category", [["random", "🎲 Surprise me"]].concat(Object.keys(content.pool(content.goose, O.s.cheeky)).map((c) => [c, c])), o.category ?? "random"],
     ],
     pecking: (o) => [["laps", "Turns each", [1, 2, 3], o.laps ?? 1]],
-    quackers: (o) => [["mode", "Cards", [["all", "All"], ["likely", "Most likely"], ["never", "Never have I"], ["rather", "Would you rather"], ["fowl", "Fowl Play"]], o.mode ?? "all"]],
+    quackers: (o) => [["mode", "Cards (20 per game)", [["all", "Mix of everything"], ["likely", "Most likely"], ["whowould", "Pick a duck"], ["never", "Never have I"], ["rather", "Would you rather"], ["hottake", "Hot takes"], ["fowl", "Fowl Play"]], o.mode ?? "all"]],
   };
-  const MIN = { hat: 4, scrawl: 3, goose: 3, pecking: 3, quackers: 2 };
+  const MIN = { hat: 4, scrawl: 3, goose: 3, pecking: 3, quackers: 2, quackback: 3, doodle: 3 };
 
   function lobby(s) {
     const host = isHost();
@@ -324,47 +333,238 @@
   /* ----- Quackers ----- */
   const QT = {
     likely: { label: "Who's most likely to…", look: { body: "#FFD23F", hat: "party", mood: "sly" }, cls: "c-likely" },
+    whowould: { label: "Pick a duck", look: { body: "#7FDBFF", hat: "crown", mood: "happy" }, cls: "c-whowould" },
     never: { label: "Never have I ever…", look: { body: "#9BE564", hat: "halo", mood: "wink" }, cls: "c-never" },
     rather: { label: "Would you rather…", look: { body: "#C9A7FF", hat: "top", mood: "normal" }, cls: "c-rather" },
+    hottake: { label: "Hot take 🌶️", look: { body: "#FFB347", hat: "beanie", mood: "sly" }, cls: "c-hottake" },
     fowl: { label: "Fowl Play 🎲", look: { body: "#FF6B6B", hat: "horns", mood: "sly" }, cls: "c-fowl" },
   };
   R.quackers = (s, g) => {
+    if (g.phase === "final") return {
+      key: `q:${g.gid}:final`,
+      sound: () => { App.sound.win(); App.confetti(); },
+      html: `${topbar("Quackers", "The Quackies 🏆")}<section class="screen center">
+        <div class="hero-duck bob">${App.duck({ hat: "crown", mood: "happy" })}</div>
+        <h1>${g.total} cards. No survivors.</h1>
+        <p class="lead">And the Quackies go to…</p>
+        <div class="awards">${g.awards.length ? g.awards.map((a) => `<div class="award"><div class="award-ducks">${a.pids.map((p) => `<span>${duckOf(p, { hat: "crown", mood: "happy" })}</span>`).join("")}</div>
+          <strong>${a.title}</strong><b>${a.pids.map(nm).join(" & ")}</b><span class="muted">${a.sub} · ${a.n}</span></div>`).join("") : `<p class="muted">Nobody voted on anything. Suspicious.</p>`}</div>
+        <p class="muted">Each winner gets a point on the lobby leaderboard. Play again for a brand new 20 — no repeats.</p>
+        ${endButtons()}</section>`,
+    };
     const c = g.card, T = QT[c.t], voted = g.myVote !== null;
-    const body = c.t === "rather" ? `<div class="rather"><span>🫲 ${esc(c.a)}</span><em>or</em><span>${esc(c.b)} 🫱</span></div>` : `<p class="qc-text">${esc(c.text)}${c.t === "likely" ? "?" : c.t === "never" ? "." : ""}</p>`;
-    let controls = "";
     const roster = g.roster || s.players.map((p) => p.pid);
+    const body = c.t === "rather" ? `<div class="rather"><span>🫲 ${esc(c.a)}</span><em>or</em><span>${esc(c.b)} 🫱</span></div>`
+      : `<p class="qc-text">${esc(c.text)}${c.t === "likely" || c.t === "whowould" ? "?" : c.t === "fowl" ? "" : "."}</p>`;
+    const pickGrid = `<div class="pick-grid">${roster.map((p) => `<button class="pick" data-act="vote" data-arg='${arg({ v: p })}'>${duckOf(p)}<span>${nm(p)}</span></button>`).join("")}</div>`;
+    const two = (a, b, la, lb, ca = "", cb = "") => `<div class="play-btns"><button class="btn btn-xl ${ca}" data-act="vote" data-arg='${arg({ v: a })}'>${la}</button><button class="btn btn-xl ${cb}" data-act="vote" data-arg='${arg({ v: b })}'>${lb}</button></div>`;
+    const bars = (rows) => { const tot = Math.max(1, rows.reduce((n, r) => n + r[1].length, 0)); return `<div class="results">${rows.map(([label, ps]) => `<div class="bar-row"><div class="bar-label"><b>${label}</b><span>${Math.round((ps.length / tot) * 100)}%</span></div><div class="bar"><i style="width:${(ps.length / tot) * 100}%"></i></div><div class="bar-names">${ps.map(nm).join(", ") || "nobody"}</div></div>`).join("")}</div>`; };
+    let controls = "";
     if (!g.revealed && c.t !== "fowl") {
       if (voted) controls = `<p class="center lead">Locked in! Waiting for the stragglers…</p><div data-live="wait">${waitingFor(roster.filter((p) => P(p).on), g.voted)}</div><button class="btn" data-act="reveal">Reveal now</button>`;
-      else if (c.t === "likely") controls = `<p class="center"><b>Tap your pick:</b></p><div class="pick-grid">${roster.map((p) => `<button class="pick" data-act="vote" data-arg='${arg({ v: p })}'>${duckOf(p)}<span>${nm(p)}</span></button>`).join("")}</div>`;
-      else if (c.t === "rather") controls = `<div class="play-btns"><button class="btn btn-xl" data-act="vote" data-arg='${arg({ v: "a" })}'>🫲 ${esc(c.a)}</button><button class="btn btn-xl" data-act="vote" data-arg='${arg({ v: "b" })}'>${esc(c.b)} 🫱</button></div>`;
-      else controls = `<div class="play-btns"><button class="btn btn-good btn-xl" data-act="vote" data-arg='${arg({ v: "yes" })}'>🦆 I have</button><button class="btn btn-xl" data-act="vote" data-arg='${arg({ v: "no" })}'>😇 Never</button></div>`;
+      else if (c.t === "likely" || c.t === "whowould") controls = `<p class="center"><b>Tap your pick:</b></p>${pickGrid}`;
+      else if (c.t === "rather") controls = two("a", "b", `🫲 ${esc(c.a)}`, `${esc(c.b)} 🫱`);
+      else if (c.t === "hottake") controls = two("agree", "disagree", "👍 Agree", "👎 Disagree", "btn-good", "btn-bad");
+      else controls = two("yes", "no", "🦆 I have", "😇 Never", "btn-good");
     } else if (g.revealed && g.votes) {
       const votes = g.votes, by = (v) => Object.keys(votes).filter((p) => votes[p] === v);
-      if (c.t === "likely") {
+      if (c.t === "likely" || c.t === "whowould") {
         const counts = {}; Object.values(votes).forEach((p) => (counts[p] = (counts[p] || 0) + 1));
         const rows = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-        controls = `<div class="results">${rows.map(([p, n], i) => `<div class="res-row ${i === 0 ? "top" : ""}"><span class="res-duck">${duckOf(p, { mood: i === 0 ? "shock" : "normal" })}</span><b>${nm(p)}</b><span class="res-n">${n} ${n === 1 ? "vote" : "votes"}</span></div>`).join("")}</div>
-          ${rows[0] ? `<p class="center lead">${nm(rows[0][0])}: waddle of shame, please. 🦆</p>` : ""}`;
-      } else if (c.t === "rather") {
-        const A = by("a"), B = by("b"), tot = Math.max(1, A.length + B.length);
-        controls = `<div class="results">${[[c.a, A], [c.b, B]].map(([label, ps]) => `<div class="bar-row"><div class="bar-label"><b>${esc(label)}</b><span>${Math.round((ps.length / tot) * 100)}%</span></div><div class="bar"><i style="width:${(ps.length / tot) * 100}%"></i></div><div class="bar-names">${ps.map(nm).join(", ") || "nobody"}</div></div>`).join("")}</div>
-          <p class="center muted">Minority: defend yourselves.</p>`;
-      } else if (c.t === "never") {
+        controls = `<div class="results">${rows.map(([p, n], i) => `<div class="res-row ${i === 0 ? "top" : ""}"><span class="res-duck">${duckOf(p, { mood: i === 0 ? (c.t === "likely" ? "shock" : "happy") : "normal" })}</span><b>${nm(p)}</b><span class="res-n">${n} ${n === 1 ? "vote" : "votes"}</span></div>`).join("")}</div>
+          ${rows[0] ? `<p class="center lead">${c.t === "likely" ? `${nm(rows[0][0])}: waddle of shame, please. 🦆` : `${nm(rows[0][0])}: take a bow. 🙇`}</p>` : ""}`;
+      } else if (c.t === "rather") controls = bars([[esc(c.a), by("a")], [esc(c.b), by("b")]]) + `<p class="center muted">Minority: defend yourselves.</p>`;
+      else if (c.t === "hottake") controls = bars([["👍 Agree", by("agree")], ["👎 Disagree", by("disagree")]]) + `<p class="center muted">Smallest side argues their case. Go.</p>`;
+      else if (c.t === "never") {
         const Y = by("yes");
         controls = `<div class="results center">${Y.length ? `<p class="lead">Guilty ducks 🦆</p><div class="waiting">${Y.map((p) => `<span class="wdk">${duckOf(p, { mood: "wink" })}<em>${nm(p)}</em></span>`).join("")}</div><p class="muted">Explanations are mandatory.</p>` : `<p class="lead">Nobody! What a pure, boring flock. 😇</p>`}</div>`;
       }
     }
+    const last = c.n >= c.of;
     return {
-      key: `q:${g.gid}:${c.n}:${voted}:${g.revealed}:${g.mode}`,
+      key: `q:${g.gid}:${c.n}:${voted}:${g.revealed}`,
       sound: () => App.sound.quack(),
-      html: `${topbar("Quackers", `Card ${c.n}`)}<section class="screen">
-        ${App.chooser("mode", [["all", "All"], ["likely", "Most likely"], ["never", "Never have I"], ["rather", "Would you rather"], ["fowl", "Fowl Play"]], g.mode)}
+      html: `${topbar("Quackers", `Card ${c.n} of ${c.of}`)}<section class="screen">
+        <div class="deck-progress"><i style="width:${((c.n - 1) / c.of) * 100}%"></i></div>
         <div class="q-card ${T.cls}"><div class="qc-duck">${App.duck(T.look)}</div><span class="qc-label">${T.label}</span>${body}
           ${c.t === "fowl" ? `<span class="qc-how">Do it, or take a forfeit the flock agrees on.</span>` : ""}</div>
         ${controls}
-        ${g.revealed ? `<button class="btn btn-primary btn-xl" data-act="next">Next card</button>` : `<button class="btn btn-ghost" data-act="next">Skip card</button>`}
+        ${g.revealed ? `<button class="btn btn-primary btn-xl" data-act="next">${last ? "To the awards! 🏆" : "Next card"}</button>` : `<button class="btn btn-ghost" data-act="next">Skip card</button>`}
         ${hostBar()}</section>`,
-      setup(el) { App.wireChoosers(el, (k, v) => O.act("mode", { mode: v })); },
+    };
+  };
+
+  /* ----- Quack Back ----- */
+  R.quackback = (s, g) => {
+    const me = s.me, roundName = g.round === 2 ? "The Last Quack" : `Round ${g.round + 1}`;
+    const sub = `${roundName}${g.round < 2 ? ` · ${g.round + 1}× points` : " · 3× points"}`;
+    const scoreRowsQB = () => App.scoreboard(g.roster.map((p) => ({ name: P(p).name + (p === me ? " (you)" : ""), score: g.scores[p] || 0, duck: duckOf(p) })));
+    if (g.phase === "write") {
+      const todo = g.prompts.filter((p) => !p.answered);
+      if (!todo.length) return {
+        key: `qb:${g.gid}:${g.round}:write:done`,
+        html: `${topbar("Quack Back", sub)}<section class="screen center">${timer(g.deadline, 90)}
+          <div class="hero-duck bob">${duckOf(me, { mood: "sly" })}</div><h1>Answers in!</h1><p class="lead">Waiting for the slow writers:</p>
+          <div data-live="wait">${waitingFor(g.roster.filter((p) => P(p).on), g.done)}</div>${hostBar(`<button class="btn btn-small" data-act="forceVote">Start voting now</button>`)}</section>`,
+      };
+      const p = todo[0];
+      return {
+        key: `qb:${g.gid}:${g.round}:write:${p.idx}`,
+        sound: () => App.sound.quack(),
+        html: `${topbar("Quack Back", sub)}<section class="screen">${timer(g.deadline, 90)}
+          ${g.round === 2 ? `<p class="eyebrow center">🎤 Everyone answers this one</p>` : `<p class="eyebrow center">Prompt ${g.prompts.length - todo.length + 1} of ${g.prompts.length}</p>`}
+          <div class="q-card c-quackback"><div class="qc-duck">${App.duck({ body: "#FFB347", hat: "cap", mood: "wink" })}</div><p class="qc-text">${esc(p.prompt)}</p></div>
+          <form id="f" class="word-row"><input id="t" maxlength="80" autocomplete="off" placeholder="Your funniest answer…"></form>
+          <button class="btn btn-primary btn-xl" id="send">Lock it in</button>
+          <button class="btn btn-ghost" id="quack">🦆 I've got nothing — just quack</button>
+          <p class="hint center">${g.round === 2 ? "The whole flock votes for their favourite." : "Someone else got this prompt too. The flock picks the funnier answer."}</p>
+          ${hostBar()}</section>`,
+        setup(el) {
+          const t = $("#t", el); t.focus();
+          const send = (e, text) => { if (e) e.preventDefault(); const v = text || t.value.trim(); if (!v) { t.focus(); return; } O.act("answer", { idx: p.idx, text: v }); };
+          $("#f", el).onsubmit = send; $("#send", el).onclick = send;
+          $("#quack", el).onclick = () => send(null, pick(["Quack.", "QUACK.", "quack?", "Quack quack quack."]));
+        },
+      };
+    }
+    if (g.phase === "vote" || g.phase === "result") {
+      const res = g.phase === "result";
+      if (g.round === 2) {
+        const opts = g.options, max = res ? Math.max(0, ...opts.map((o) => o.votes)) : 0;
+        return {
+          key: `qb:${g.gid}:last:${g.phase}:${!!g.myVote}`,
+          sound: () => (res ? App.sound.win() : App.sound.quack()),
+          html: `${topbar("Quack Back", "The Last Quack")}<section class="screen">${res ? "" : timer(g.deadline, 25)}
+            <div class="q-card c-quackback small-card"><p class="qc-text">${esc(g.prompt)}</p></div>
+            <p class="center">${res ? "<b>The results!</b>" : g.myVote ? "Vote in. Waiting…" : "<b>Vote for your favourite</b> (not your own, nice try)"}</p>
+            <div class="qb-answers">${opts.map((o) => `<button class="qb-ans ${o.mine ? "mine" : ""} ${g.myVote === o.id ? "on" : ""} ${res && o.votes === max && max > 0 ? "winner" : ""}" ${res || o.mine || g.myVote ? "disabled" : ""} data-act="vote" data-arg='${arg({ pick: o.id })}'>
+              <span class="qb-text">${esc(o.text)}</span>${res ? `<span class="qb-by">${duckOf(o.by)}<em>${nm(o.by)}</em><b>${o.votes} ${o.votes === 1 ? "vote" : "votes"}</b></span>` : o.mine ? `<span class="qb-by"><em>(yours)</em></span>` : ""}</button>`).join("")}</div>
+            ${res ? `<button class="btn btn-primary btn-xl" data-act="next">Final scores</button>` : ""}${hostBar()}</section>`,
+        };
+      }
+      const side = (k) => {
+        const o = g[k], winner = res && o.voters.length > g[k === "a" ? "b" : "a"].voters.length;
+        return `<button class="qb-ans ${o.mine ? "mine" : ""} ${g.myVote === k ? "on" : ""} ${winner ? "winner" : ""}" ${res || !g.canVote || g.myVote ? "disabled" : ""} data-act="vote" data-arg='${arg({ pick: k })}'>
+          <span class="qb-text">${esc(o.text)}</span>
+          ${res ? `<span class="qb-by">${duckOf(o.by, { mood: winner ? "happy" : "normal" })}<em>${nm(o.by)}</em><b>+${o.points}</b></span>
+            <span class="qb-voters">${o.voters.map((p) => `<i title="${nm(p)}">${duckOf(p)}</i>`).join("")}</span>` : o.mine ? `<span class="qb-by"><em>(yours)</em></span>` : ""}
+        </button>`;
+      };
+      const qo = res && g.quackout;
+      return {
+        key: `qb:${g.gid}:${g.round}:${g.n}:${g.phase}:${!!g.myVote}`,
+        sound: () => (res ? (qo ? (App.sound.win(), App.confetti()) : App.sound.good()) : App.sound.quack()),
+        html: `${topbar("Quack Back", `${sub} · ${g.n} of ${g.of}`)}<section class="screen">${res ? "" : timer(g.deadline, 25)}
+          <div class="q-card c-quackback small-card"><p class="qc-text">${esc(g.prompt)}</p></div>
+          <div class="qb-versus">${side("a")}<span class="vs">VS</span>${side("b")}</div>
+          ${qo ? `<h2 class="center quackout">🦆 QUACK-OUT! 🦆</h2><p class="center muted">Every single vote. Bonus points.</p>` : ""}
+          <p class="center muted">${res ? "" : !g.canVote ? "One of these is yours. Sit tight and look innocent." : g.myVote ? "Vote in!" : "Tap the funnier one."}</p>
+          ${res && isHost() ? `<button class="btn btn-primary" data-act="next">Next ›</button>` : ""}
+          ${hostBar()}</section>`,
+      };
+    }
+    if (g.phase === "scores") return {
+      key: `qb:${g.gid}:${g.round}:scores`,
+      sound: () => App.sound.good(),
+      html: `${topbar("Quack Back", `After round ${g.round + 1}`)}<section class="screen center">
+        <div class="hero-duck bob">${App.duck({ body: "#FFB347", hat: "cap", mood: "happy" })}</div>
+        <h1>Scores so far</h1>${scoreRowsQB()}
+        <p class="lead">${g.round === 0 ? "Round 2: double points." : "Next: the Last Quack — everyone answers one prompt, triple points."}</p>
+        <button class="btn btn-primary btn-xl" data-act="next">${g.round === 0 ? "Round 2" : "The Last Quack"}</button>${hostBar()}</section>`,
+    };
+    const best = g.roster.slice().sort((a, b) => (g.scores[b] || 0) - (g.scores[a] || 0))[0];
+    return {
+      key: `qb:${g.gid}:final`,
+      sound: () => { App.sound.win(); App.confetti(); },
+      html: `${topbar("Quack Back", "Game over")}<section class="screen center">
+        <div class="hero-duck bob">${duckOf(best, { hat: "crown", mood: "happy" })}</div>
+        <h1>${nm(best)} is the funniest duck!</h1><p class="lead">Allegedly.</p>${scoreRowsQB()}${endButtons()}</section>`,
+    };
+  };
+
+  /* ----- Doodle Duck ----- */
+  const toPad = (s) => ({ c: s.c, s: s.w, p: s.p.map(([x, y]) => [x / 1000, y / 1000]) });
+  const toNet = (pts) => pts.map(([x, y]) => [Math.round(x * 1000), Math.round(y * 1000)]);
+  R.doodle = (s, g) => {
+    const me = s.me, drawing = me === g.drawer, sub = `Turn ${Math.min(g.turn + 1, g.total)} of ${g.total}`;
+    const scoreRowsD = () => App.scoreboard(g.roster.map((p) => ({ name: P(p).name + (p === me ? " (you)" : ""), score: g.scores[p] || 0, duck: duckOf(p) })));
+    if (g.phase === "choose") return drawing ? {
+      key: `d:${g.gid}:${g.turn}:choose:me`,
+      sound: () => App.sound.quack(1.2),
+      html: `${topbar("Doodle Duck", sub)}<section class="screen center">${timer(g.deadline, 15)}
+        <div class="hero-duck bob">${duckOf(me, { hat: "beanie", mood: "happy" })}</div>
+        <h1>You're drawing!</h1><p class="lead">Pick one. No letters, no numbers, no shame.</p>
+        <div class="stack">${g.choices.map((w) => `<button class="btn btn-xl" data-act="choose" data-arg='${arg({ word: w })}'>${esc(w)}</button>`).join("")}</div>${hostBar()}</section>`,
+    } : {
+      key: `d:${g.gid}:${g.turn}:choose`,
+      html: `${topbar("Doodle Duck", sub)}<section class="screen center">${timer(g.deadline, 15)}
+        <div class="hero-duck bob">${duckOf(g.drawer, { hat: "beanie", mood: "sly" })}</div>
+        <h1>${nm(g.drawer)} is picking a word…</h1><p class="lead">Get your typing thumbs ready. Fastest correct guess scores most.</p>
+        ${hostBar(`<button class="btn btn-small" data-act="skip">Skip ${nm(g.drawer)}</button>`)}</section>`,
+    };
+    if (g.phase === "draw" || g.phase === "reveal") {
+      const reveal = g.phase === "reveal", got = g.guessed[me] !== undefined;
+      const feed = `<div class="feed">${g.feed.slice(-8).map((f) => f.kind === "correct" ? `<div class="fd ok">✅ <b>${nm(f.pid)}</b> got it!</div>`
+        : f.kind === "close" ? `<div class="fd close">🔥 <b>${esc(f.text)}</b> is so close!</div>` : `<div class="fd"><b>${nm(f.pid)}:</b> ${esc(f.text)}</div>`).join("")}</div>`;
+      const hint = `<div class="hint-word">${reveal || drawing || got ? `<b>${esc(g.word)}</b>` : [...g.hint].map((ch) => (ch === " " ? "<i class='gap'></i>" : `<span>${ch === "_" ? "" : esc(ch)}</span>`)).join("")}</div>`;
+      const tools = drawing && !reveal ? `<div class="tools"><div class="swatches">${["#3b2618", "#E63946", "#FF8A1E", "#FFD23F", "#2BB673", "#3A86FF", "#C77DFF", "#FF8FAB", "#ffffff"].map((c, i) => `<button class="sw ${i === 0 ? "on" : ""}" data-c="${c}" style="background:${c}" aria-label="colour ${c}"></button>`).join("")}</div>
+        <div class="sizes">${[4, 10, 22].map((z, i) => `<button class="sz ${i === 1 ? "on" : ""}" data-s="${z}" aria-label="brush ${z}"><i style="width:${z}px;height:${z}px"></i></button>`).join("")}<button class="icon-btn" id="undo" aria-label="Undo">↶</button><button class="icon-btn" id="clear" aria-label="Clear">🗑</button></div></div>` : "";
+      return {
+        key: `d:${g.gid}:${g.turn}:${g.phase}:${drawing ? "me" : got ? "got" : "guess"}`,
+        sound: () => (reveal ? App.sound.honk() : got ? App.sound.win() : App.sound.quack()),
+        html: `${topbar("Doodle Duck", `${sub} · ${drawing ? "you're drawing" : `${nm(g.drawer)} is drawing`}`)}<section class="screen draw-screen">
+          ${reveal ? "" : timer(g.deadline, g.seconds)}
+          <div data-live="hint">${hint}</div>
+          <div class="canvas-wrap"><canvas id="cv"></canvas></div>
+          ${tools}
+          ${!drawing && !got && !reveal ? `<form id="gf" class="word-row"><input id="gi" maxlength="40" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Type your guess…" enterkeyhint="send"><button class="btn btn-primary" type="submit">Guess</button></form>` : ""}
+          ${got && !reveal ? `<p class="center lead">✅ You got it! +${g.guessed[me]}</p>` : ""}
+          <div data-live="feed">${feed}</div>
+          ${reveal ? `<h2 class="center">It was “${esc(g.word)}”!</h2><p class="center muted">${Object.keys(g.guessed).length} of ${g.roster.length - 1} got it.</p>${scoreRowsD()}
+            ${drawing || isHost() ? `<button class="btn btn-primary btn-xl" data-act="next">Next drawer</button>` : `<p class="muted center">Next drawer coming up…</p>`}` : ""}
+          ${hostBar(reveal ? "" : `<button class="btn btn-small" data-act="skip">End this turn</button>`)}</section>`,
+        setup(el) {
+          const canvas = $("#cv", el);
+          if (drawing && !reveal) {
+            let buf = [], flushT = null;
+            const flush = () => { flushT = null; if (buf.length) { O.act("ink", { op: "more", p: toNet(buf) }); buf = []; } };
+            const pad = App.Pad(canvas, {
+              onStart: (st) => { flush(); O.act("ink", { op: "start", c: st.c, w: st.s, p: toNet(st.p) }); },
+              onMove: (pt) => { buf.push(pt); if (!flushT) flushT = setTimeout(flush, 60); },
+              onUndo: () => { flush(); O.act("ink", { op: "undo" }); },
+              onClear: () => { flush(); O.act("ink", { op: "clear" }); },
+            });
+            pad.load((g.strokes || []).map(toPad));
+            $$(".sw", el).forEach((b) => (b.onclick = () => { $$(".sw", el).forEach((x) => x.classList.toggle("on", x === b)); pad.color = b.dataset.c; }));
+            $$(".sz", el).forEach((b) => (b.onclick = () => { $$(".sz", el).forEach((x) => x.classList.toggle("on", x === b)); pad.size = +b.dataset.s; }));
+            $("#undo", el).onclick = () => pad.undo();
+            $("#clear", el).onclick = () => pad.clear();
+            O.onInk = null;
+          } else {
+            const view = App.Pad(canvas, {}, true);
+            view.load((g.strokes || []).map(toPad));
+            O.onInk = (m) => {
+              if (m.op === "start") view.startStroke(toPad(m.s));
+              else if (m.op === "more") view.addPoints(m.p.map(([x, y]) => [x / 1000, y / 1000]));
+              else if (m.op === "undo") view.pop();
+              else if (m.op === "clear") view.wipe();
+            };
+          }
+          const gf = $("#gf", el);
+          if (gf) {
+            const gi = $("#gi", el);
+            gf.onsubmit = (e) => { e.preventDefault(); const v = gi.value.trim(); if (!v) return; O.act("guess", { text: v }); gi.value = ""; gi.focus(); };
+          }
+        },
+      };
+    }
+    const best = g.roster.slice().sort((a, b) => (g.scores[b] || 0) - (g.scores[a] || 0))[0];
+    return {
+      key: `d:${g.gid}:final`,
+      sound: () => { App.sound.win(); App.confetti(); },
+      html: `${topbar("Doodle Duck", "Game over")}<section class="screen center">
+        <div class="hero-duck bob">${duckOf(best, { hat: "crown", mood: "happy" })}</div>
+        <h1>${nm(best)} is the Duckasso!</h1>${scoreRowsD()}${endButtons()}</section>`,
     };
   };
 
@@ -480,7 +680,7 @@
           <button class="btn btn-primary btn-xl" id="send">Lock it in</button>${hostBar()}</section>`,
         setup(el) {
           const t = $("#t", el);
-          const d = $("#dice", el); if (d) d.onclick = () => { t.value = pick(content.pool(content.scrawl, O.s.cheeky)); App.sound.pop(); };
+          const d = $("#dice", el); if (d) d.onclick = () => { t.value = App.fresh("scrawl", content.pool(content.scrawl, O.s.cheeky), 1)[0]; App.sound.pop(); };
           const send = (e) => { if (e) e.preventDefault(); const v = t.value.trim(); if (!v) { t.focus(); t.placeholder = "Go on, write something!"; return; } O.act("submit", { content: v }); };
           $("#f", el).onsubmit = send; $("#send", el).onclick = send;
         },
@@ -509,7 +709,9 @@
     "Say anything you like — except the word itself (or bits of it).",
     "Exactly ONE word per clue. Choose wisely.",
     "Act it out. The ONLY sound you can make is QUACK.",
+    "No words. No sounds. No hands. Just your face — eyebrows doing the heavy lifting.",
   ];
+  const ROUND_LOOKS = [{ hat: "top", mood: "happy" }, { hat: "shades", mood: "sly", body: "#7FDBFF" }, { hat: "party", mood: "happy", quack: true, body: "#FF9EC4" }, { mood: "normal", brows: true, body: "#9BE564" }];
   R.hat = (s, g) => {
     const me = s.me, sub = g.phase === "words" ? "Filling the hat" : `Round ${g.round + 1}: ${g.roundName}`;
     const teamsHTML = `<div class="teams">${g.teams.map((t, i) => `<div class="team t${i}"><strong>${esc(t.name)}</strong> <b class="tscore">${t.score}</b><div class="team-ducks">${t.players.map((p) => `<span class="tdk">${duckOf(p)}<em>${nm(p)}${p === me ? " (you)" : ""}</em></span>`).join("")}</div></div>`).join("")}</div>`;
@@ -535,7 +737,7 @@
       key: `h:${g.gid}:round:${g.round}`,
       sound: () => App.sound.quack(),
       html: `${topbar("Duck in a Hat", sub)}<section class="screen center">
-        <p class="eyebrow">Round ${g.round + 1} of 3</p><div class="hero-duck bob">${App.duck([{ hat: "top", mood: "happy" }, { hat: "shades", mood: "sly", body: "#7FDBFF" }, { hat: "party", mood: "happy", quack: true, body: "#FF9EC4" }][g.round])}</div>
+        <p class="eyebrow">Round ${g.round + 1} of ${g.roundCount}</p><div class="hero-duck bob">${App.duck(ROUND_LOOKS[g.round])}</div>
         <h1>${g.roundName}</h1><p class="rule">${RULES[g.round]}</p><p class="muted">${g.hatSize} words in the hat.</p>
         <button class="btn btn-primary btn-xl" data-act="go">Let's go</button>${teamsHTML}${hostBar()}</section>`,
     };
@@ -579,7 +781,7 @@
           <p class="lead">${g.got.length === 0 ? "Absolutely nothing. A sitting duck." : g.got.length >= 6 ? "Unstoppable. Ducking magnificent." : "Not bad, not bad."}</p>
           ${g.got.length ? `<div class="got-list">${g.got.map((w) => `<span class="chip on">${esc(w)}</span>`).join("")}</div>` : ""}
           ${App.scoreboard(g.teams.map((t) => ({ name: t.name, score: t.score })))}
-          <button class="btn btn-primary btn-xl" data-act="next">${g.emptied ? (g.round < 2 ? `On to Round ${g.round + 2}` : "Final results") : "Next team"}</button>${hostBar()}</section>`,
+          <button class="btn btn-primary btn-xl" data-act="next">${g.emptied ? (g.round < g.roundCount - 1 ? `On to Round ${g.round + 2}` : "Final results") : "Next team"}</button>${hostBar()}</section>`,
       };
     }
     const sorted = g.teams.slice().sort((a, b) => b.score - a.score), tie = sorted[1] && sorted[0].score === sorted[1].score;

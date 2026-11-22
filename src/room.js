@@ -1,6 +1,7 @@
 /* One Durable Object per room code. Holds the room in memory while anyone is
    connected, runs the game logic, and sends every player their own view. */
 import "../public/js/content.js";
+import "../public/js/content-more.js";
 import { GAMES } from "./games/index.js";
 
 const C = globalThis.GAD_CONTENT;
@@ -106,6 +107,7 @@ export class Room {
       default:
         if (this.s.game) {
           const err = GAMES[this.s.game.id].act(this.api(), this.s.game, pid, m, isHost);
+          if (err === "quiet") return; // handled without a full state update (e.g. live ink)
           if (err) return this.send(ws, { t: "error", msg: err });
         }
     }
@@ -173,6 +175,14 @@ export class Room {
       later: (ms, fn) => self.later(ms, fn),
       clearLater: () => self.clearLater(),
       now: () => Date.now(),
+      /** n picks from pool, avoiding what this room has seen recently. */
+      fresh: (key, pool, n) => {
+        self.s.used = self.s.used || {};
+        const used = (self.s.used[key] = self.s.used[key] || []);
+        return C.fresh(pool, n, used);
+      },
+      /** Raw message to everyone (except one player) — used for live drawing ink. */
+      sendAll: (msg, exceptPid) => { for (const [ws, p] of self.socks) if (p && p !== exceptPid) self.send(ws, msg); },
     };
   }
 

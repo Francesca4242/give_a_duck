@@ -8,11 +8,15 @@ Installable on iPhone and Android (it's a PWA), works offline once loaded, no ac
 
 | Game | Ducks | What happens |
 |---|---|---|
-| **Duck in a Hat** | 4+ | The hat game. Everyone writes words (or use the Duck Deck), then teams play three rounds with the same words: *Describe It*, *One Word Wonder*, *Quack Charades*. |
+| **Duck in a Hat** | 4+ | The hat game. Everyone writes words (or use the 380-word Duck Deck), then teams play the same words through *Describe It*, *One Word Wonder*, *Quack Charades* and *Eyebrows Only* 👀. |
+| **Quack Back** 🌐 | 3+ | Cheeky fill-in-the-blanks. Two ducks answer each prompt, the rest vote for the funnier one. Two rounds, then the Last Quack. |
+| **Doodle Duck** 🌐 | 3+ | One duck draws live on their phone; everyone else races to type the answer. |
 | **Scrawl-ack** | 3+ | Drawing telephone. Write → draw → guess → draw… then a step-by-step Big Reveal. |
 | **Duck Duck Goose** | 4+ | Everyone sees the secret word except the Goose, who only gets the category. One-word clues, then vote out the Goose. If they're caught, the Goose can still steal the win by guessing the word. |
 | **Pecking Order** | 3+ | One Top Duck secretly ranks five things from love to loathe. The flock guesses the order. |
-| **Quackers** | 2+ | Card deck of *Most likely to…*, *Never have I ever…*, *Would you rather…* and *Fowl Play* dares. |
+| **Quackers** | 2+ | 20-card games of *Most likely to…*, *Pick a duck*, *Never have I ever…*, *Would you rather…*, *Hot takes* and *Fowl Play* dares, ending with awards. Play again for a fresh 20. |
+
+🌐 = online rooms only (everyone on their own phone). Every deck remembers what you've recently had, so replays deal new words and cards.
 
 A **🧼 Clean / 🍑 Cheeky** switch on the home screen controls how rude the content gets. All the words live in [`public/js/content.js`](public/js/content.js). Add your own there.
 

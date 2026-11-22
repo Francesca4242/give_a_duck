@@ -6,13 +6,14 @@
     { name: "Describe It", rule: "Say anything you like — except the word itself (or bits of it). No 'sounds like', no spelling.", look: { hat: "top", mood: "happy" } },
     { name: "One Word Wonder", rule: "Exactly ONE word per clue. Choose wisely. Pointing and pleading eyes are allowed.", look: { hat: "shades", mood: "sly", body: "#7FDBFF" } },
     { name: "Quack Charades", rule: "Act it out. The ONLY sound you can make is QUACK. Interpretive waddling encouraged.", look: { hat: "party", mood: "happy", quack: true, body: "#FF9EC4" } },
+    { name: "Eyebrows Only 👀", rule: "No words. No sounds. No hands. Just your face — eyebrows doing the heavy lifting. Waggle with purpose.", look: { hat: "none", mood: "normal", brows: true, body: "#9BE564" } },
   ];
 
   let G;
 
   function start() {
     const n = App.state.players.length;
-    G = { teamCount: n >= 8 ? 3 : 2, perPlayer: 3, seconds: 45, source: "flock" };
+    G = { teamCount: n >= 8 ? 3 : 2, perPlayer: 3, seconds: 45, source: "flock", rounds: 4 };
     makeTeams();
     setup();
   }
@@ -33,6 +34,7 @@
         <div class="field"><label>Where do the words come from?</label>${App.chooser("source", [["flock", "✍️ Everyone writes"], ["deck", "🎲 Duck Deck"]], G.source)}</div>
         <div class="field"><label>${G.source === "flock" ? "Words per duck" : "Words in the hat"}</label>${App.chooser("perPlayer", [3, 4, 5], G.perPlayer)}</div>
         <div class="field"><label>Seconds per turn</label>${App.chooser("seconds", [30, 45, 60, 90], G.seconds)}</div>
+        <div class="field"><label>Rounds</label>${App.chooser("rounds", [[3, "3 classic"], [4, "4 + 👀 Eyebrows Only"]], G.rounds)}</div>
         <h3 class="section-title">The teams <button class="btn btn-small" id="reshuffle">🔀 Reshuffle</button></h3>
         <div class="teams">${G.teams.map((t, i) => `<div class="team t${i}"><strong>${esc(t.name)}</strong>
           <div class="team-ducks">${t.players.map((p) => `<span class="tdk">${App.duckFor(P[p])}<em>${esc(P[p].name)}</em></span>`).join("")}</div></div>`).join("")}</div>
@@ -47,7 +49,7 @@
       $("#go", el).onclick = () => {
         G.words = [];
         if (G.source === "deck") {
-          G.words = shuffle(content.pool(content.hat)).slice(0, Math.max(12, G.perPlayer * n));
+          G.words = App.fresh("hat", content.pool(content.hat), Math.max(12, G.perPlayer * n));
           rounds(0);
         } else collect(0);
       };
@@ -67,10 +69,10 @@
           </form>
         </section>`, (el) => {
         const pool = content.pool(content.hat);
-        $$("[data-dice]", el).forEach((b) => (b.onclick = () => { $(`[name=w${b.dataset.dice}]`, el).value = pick(pool); App.sound.pop(); }));
+        $$("[data-dice]", el).forEach((b) => (b.onclick = () => { $(`[name=w${b.dataset.dice}]`, el).value = App.fresh("hat", pool, 1)[0]; App.sound.pop(); }));
         $("#f", el).onsubmit = (e) => {
           e.preventDefault();
-          $$("input", el).forEach((inp) => G.words.push(inp.value.trim() || pick(pool)));
+          $$("input", el).forEach((inp) => G.words.push(inp.value.trim() || App.fresh("hat", pool, 1)[0]));
           collect(i + 1);
         };
       });
@@ -83,7 +85,7 @@
     if (r === 0) G.teamPtr = 0;
     const R = ROUNDS[r];
     App.sound.quack();
-    render(`${App.topbar("Duck in a Hat", `Round ${r + 1} of 3`)}
+    render(`${App.topbar("Duck in a Hat", `Round ${r + 1} of ${G.rounds}`)}
       <section class="screen center">
         <p class="eyebrow">Round ${r + 1}</p>
         <div class="hero-duck bob">${App.duck(R.look)}</div>
@@ -163,11 +165,11 @@
         <p class="lead">${got.length === 0 ? "Absolutely nothing. A sitting duck." : got.length >= 6 ? "Unstoppable. Ducking magnificent." : "Not bad, not bad."}</p>
         ${got.length ? `<div class="got-list">${got.map((w) => `<span class="chip on">${esc(w)}</span>`).join("")}</div>` : ""}
         ${App.scoreboard(G.teams.map((t) => ({ name: t.name, score: t.score })))}
-        <button class="btn btn-primary btn-xl" id="go">${nextRound ? (G.round < 2 ? `On to Round ${G.round + 2}` : "Final results") : "Next team"}</button>
+        <button class="btn btn-primary btn-xl" id="go">${nextRound ? (G.round < G.rounds - 1 ? `On to Round ${G.round + 2}` : "Final results") : "Next team"}</button>
       </section>`, (el) => {
       $("#go", el).onclick = () => {
         if (!nextRound) turnReady();
-        else if (G.round < 2) rounds(G.round + 1);
+        else if (G.round < G.rounds - 1) rounds(G.round + 1);
         else final();
       };
     });

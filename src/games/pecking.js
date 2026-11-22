@@ -7,8 +7,7 @@ const FRAMES = [
 ];
 
 function deal(R, g) {
-  if (g.deck.length < 5) g.deck = R.shuffle(R.C.pool(R.C.pecking, R.cheeky));
-  g.items = g.deck.splice(0, 5);
+  g.items = R.fresh("pecking", R.C.pool(R.C.pecking, R.cheeky), 5);
   g.frame = FRAMES[g.turn % FRAMES.length];
   g.ranker = g.order[g.turn % g.order.length];
   g.secret = null; g.guesses = {}; g.phase = "rank"; g.hits = null;
@@ -18,7 +17,7 @@ const isPerm = (a, items) => Array.isArray(a) && a.length === items.length && it
 export default {
   min: 3,
   start(R, roster, opts) {
-    const g = { laps: [1, 2, 3].includes(+opts.laps) ? +opts.laps : 1, turn: 0, order: R.shuffle(roster), deck: R.shuffle(R.C.pool(R.C.pecking, R.cheeky)), roundScores: {} };
+    const g = { laps: [1, 2, 3].includes(+opts.laps) ? +opts.laps : 1, turn: 0, order: R.shuffle(roster), roundScores: {} };
     deal(R, g);
     return g;
   },

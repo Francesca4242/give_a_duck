@@ -29,7 +29,7 @@
     G.total = G.order.length * G.laps;
     G.chain = [];
     if (G.startMode === "random") {
-      G.chain.push({ type: "text", by: null, content: pick(content.pool(content.scrawl)) });
+      G.chain.push({ type: "text", by: null, content: App.fresh("scrawl", content.pool(content.scrawl), 1)[0] });
     }
     next();
   }
@@ -57,7 +57,7 @@
         <button class="btn btn-primary btn-xl" id="send">Lock it in</button>
       </section>`, (el) => {
       const t = $("#t", el);
-      const d = $("#dice", el); if (d) d.onclick = () => { t.value = pick(content.pool(content.scrawl)); App.sound.pop(); };
+      const d = $("#dice", el); if (d) d.onclick = () => { t.value = App.fresh("scrawl", content.pool(content.scrawl), 1)[0]; App.sound.pop(); };
       const send = (e) => {
         if (e) e.preventDefault();
         const v = t.value.trim();
@@ -102,7 +102,9 @@
   }
 
   /** Minimal drawing pad with undo. Strokes are stored in canvas-space 0..1. */
-  function Pad(canvas) {
+  // hooks (optional, for live streaming): onStart(stroke), onMove(point), onUndo(), onClear().
+  // readOnly pads just display strokes fed in via load()/startStroke()/addPoints().
+  function Pad(canvas, hooks = {}, readOnly = false) {
     const ctx = canvas.getContext("2d");
     const strokes = [];
     let cur = null;
@@ -130,13 +132,22 @@
       strokes.forEach(paint); if (cur) paint(cur);
     }
     const pos = (e) => { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, ((e.clientY - r.top) / r.width)]; };
-    canvas.addEventListener("pointerdown", (e) => { e.preventDefault(); canvas.setPointerCapture(e.pointerId); cur = { c: pad.color, s: pad.size, p: [pos(e)] }; redraw(); });
-    canvas.addEventListener("pointermove", (e) => { if (!cur) return; e.preventDefault(); cur.p.push(pos(e)); redraw(); });
-    const up = () => { if (cur) { strokes.push(cur); cur = null; } };
-    canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
+    if (!readOnly) {
+      canvas.addEventListener("pointerdown", (e) => { e.preventDefault(); canvas.setPointerCapture(e.pointerId); cur = { c: pad.color, s: pad.size, p: [pos(e)] }; hooks.onStart && hooks.onStart(cur); redraw(); });
+      canvas.addEventListener("pointermove", (e) => { if (!cur) return; e.preventDefault(); const pt = pos(e); cur.p.push(pt); hooks.onMove && hooks.onMove(pt); redraw(); });
+      const up = () => { if (cur) { strokes.push(cur); cur = null; } };
+      canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
+    } else canvas.style.cursor = "default";
     window.addEventListener("resize", fit);
-    pad.undo = () => { strokes.pop(); redraw(); };
-    pad.clear = () => { if (!strokes.length || confirm("Bin the whole drawing?")) { strokes.length = 0; redraw(); } };
+    pad.undo = () => { strokes.pop(); hooks.onUndo && hooks.onUndo(); redraw(); };
+    pad.clear = () => { if (!strokes.length || confirm("Bin the whole drawing?")) { strokes.length = 0; hooks.onClear && hooks.onClear(); redraw(); } };
+    // viewer API
+    pad.load = (list) => { strokes.length = 0; list.forEach((s) => strokes.push(s)); redraw(); };
+    pad.startStroke = (s) => { strokes.push(s); redraw(); };
+    pad.addPoints = (pts) => { const s = strokes[strokes.length - 1]; if (s) { s.p.push(...pts); redraw(); } };
+    pad.pop = () => { strokes.pop(); redraw(); };
+    pad.wipe = () => { strokes.length = 0; redraw(); };
+    pad.dispose = () => window.removeEventListener("resize", fit);
     // export small (max 480px wide) so drawings travel quickly over the network
     pad.image = () => {
       window.removeEventListener("resize", fit);

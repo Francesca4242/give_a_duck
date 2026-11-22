@@ -3,11 +3,13 @@
   const { $, $$, esc, render, pick, content } = App;
 
   const GAMES = [
-    { id: "hat", name: "Duck in a Hat", min: 4, tag: "Teams", blurb: "Stuff the hat with words. Describe, one-word, then quack-charades. Same words, three rounds of rising chaos.", look: { body: "#FFD23F", hat: "top", mood: "happy" } },
+    { id: "hat", name: "Duck in a Hat", min: 4, tag: "Teams", blurb: "Stuff the hat with words. Describe, one word, quack-charades, then 👀 Eyebrows Only. Same words, rising chaos.", look: { body: "#FFD23F", hat: "top", mood: "happy" } },
+    { id: "quackback", name: "Quack Back", min: 3, online: true, tag: "Writing", blurb: "Cheeky fill-in-the-blanks. Your answer goes head-to-head with another duck's and the flock votes for the funniest.", look: { body: "#FFB347", hat: "cap", mood: "wink", quack: true } },
+    { id: "doodle", name: "Doodle Duck", min: 3, online: true, tag: "Live drawing", blurb: "One duck draws live on their phone while everyone else races to type the answer. Speed = points.", look: { body: "#9BE564", hat: "beanie", mood: "happy" } },
     { id: "scrawl", name: "Scrawl-ack", min: 3, tag: "Drawing", blurb: "Draw it, guess it, ruin it. Telephone with felt tips — the reveal is always worse than you think.", look: { body: "#7FDBFF", hat: "beanie", mood: "wink" } },
     { id: "goose", name: "Duck Duck Goose", min: 4, tag: "Secret roles", blurb: "Everyone knows the secret word… except the Goose. Sniff out the imposter before it honks its way to victory.", look: { goose: true, mood: "sly" } },
     { id: "pecking", name: "Pecking Order", min: 3, tag: "Ranking", blurb: "One duck secretly ranks five things from love to loathe. Can the flock read their tiny mind?", look: { body: "#FF9EC4", hat: "crown", mood: "sly" } },
-    { id: "quackers", name: "Quackers", min: 2, tag: "Social", blurb: "Most likely to, never have I ever, would you rather and Fowl Play dares. Point, quack and shame.", look: { body: "#C8B08F", head: "#1E8A57", hat: "shades", mood: "happy" } },
+    { id: "quackers", name: "Quackers", min: 2, tag: "Social", blurb: "20 cards of most likely to, never have I ever, would you rather, hot takes and Fowl Play dares. Then awards.", look: { body: "#C8B08F", head: "#1E8A57", hat: "shades", mood: "happy" } },
   ];
   App.GAMES = GAMES;
 
@@ -41,11 +43,11 @@
         <div class="setting"><span>Sound</span>${App.chooser("sound", [["true", "🔊 Quacks on"], ["false", "🔇 Off"]], s.sound)}</div>
       </div>
 
-      <h2 class="section-title">Pick a game (one phone)</h2>
+      <h2 class="section-title">The games</h2>
       <div class="games">${GAMES.map((g) => `
         <button class="game-card" data-game="${g.id}">
           <span class="gc-duck">${App.duck(g.look)}</span>
-          <span class="gc-body"><span class="gc-tag">${g.tag} · ${g.min}+ ducks</span><strong>${g.name}</strong><span class="gc-blurb">${g.blurb}</span></span>
+          <span class="gc-body"><span class="gc-tag">${g.tag} · ${g.min}+ ducks${g.online ? ` · <b class="new-tag">🌐 Online · NEW</b>` : ""}</span><strong>${g.name}</strong><span class="gc-blurb">${g.blurb}</span></span>
         </button>`).join("")}
       </div>
       <p class="footer-note">Best with 4–20 ducks, a sofa and questionable morals. <button class="link" id="how">How does this work?</button></p>
@@ -71,6 +73,7 @@
 
   function launch(id) {
     const g = GAMES.find((x) => x.id === id);
+    if (g.online) { App.online.pick = { game: id, opts: {} }; App.online.host(); return; }
     if (App.state.players.length < g.min) {
       App.flock(`${g.name} needs at least ${g.min} ducks. Add a few more!`, id);
       return;

@@ -1,6 +1,6 @@
 /* Duck in a Hat (online): words typed on your own phone; the clue-giver sees the word,
    and so do the OTHER teams (to police cheating). Everyone sees the clock. */
-const ROUNDS = ["Describe It", "One Word Wonder", "Quack Charades"];
+const ROUNDS = ["Describe It", "One Word Wonder", "Quack Charades", "Eyebrows Only 👀"];
 
 export default {
   min: 4,
@@ -11,8 +11,9 @@ export default {
     const names = R.shuffle(R.C.teamNames);
     const teams = Array.from({ length: teamCount }, (_, i) => ({ name: names[i], players: [], score: 0, giver: 0 }));
     R.shuffle(roster).forEach((p, i) => teams[i % teamCount].players.push(p));
-    const g = { teams, perPlayer, seconds, words: [], wrote: {}, round: 0, teamPtr: 0, hat: [], cur: null, got: [], deadline: null, emptied: false };
-    if (opts.source === "deck") { g.words = R.shuffle(R.C.pool(R.C.hat, R.cheeky)).slice(0, Math.max(12, perPlayer * roster.length)); g.phase = "round"; g.hat = R.shuffle(g.words); }
+    const roundCount = +opts.rounds === 3 ? 3 : 4;
+    const g = { teams, perPlayer, seconds, roundCount, words: [], wrote: {}, round: 0, teamPtr: 0, hat: [], cur: null, got: [], deadline: null, emptied: false };
+    if (opts.source === "deck") { g.words = R.fresh("hat", R.C.pool(R.C.hat, R.cheeky), Math.max(12, perPlayer * roster.length)); g.phase = "round"; g.hat = R.shuffle(g.words); }
     else g.phase = "words";
     return g;
   },
@@ -25,15 +26,15 @@ export default {
         const pool = R.C.pool(R.C.hat, R.cheeky);
         const ws = (Array.isArray(m.words) ? m.words : []).slice(0, g.perPlayer).map((w) => String(w || "").trim().slice(0, 40));
         while (ws.length < g.perPlayer) ws.push("");
-        g.words.push(...ws.map((w) => w || R.pick(pool)));
+        g.words.push(...ws.map((w) => w || R.fresh("hat", pool, 1)[0]));
         g.wrote[pid] = true;
         if (g.roster.filter(R.connected).every((p) => g.wrote[p])) toRounds(R, g);
         return;
       }
       case "forceWords":
         if (g.phase === "words" && isHost) {
-          const pool = R.shuffle(R.C.pool(R.C.hat, R.cheeky));
-          g.roster.forEach((p) => { if (!g.wrote[p]) g.words.push(...pool.splice(0, g.perPlayer)); });
+          const pool = R.C.pool(R.C.hat, R.cheeky);
+          g.roster.forEach((p) => { if (!g.wrote[p]) g.words.push(...R.fresh("hat", pool, g.perPlayer)); });
           toRounds(R, g);
         }
         return;
@@ -61,7 +62,7 @@ export default {
       case "next":
         if (g.phase !== "summary") return;
         if (!g.emptied) g.phase = "ready";
-        else if (g.round < 2) { g.round++; g.hat = R.shuffle(g.words); g.phase = "round"; }
+        else if (g.round < g.roundCount - 1) { g.round++; g.hat = R.shuffle(g.words); g.phase = "round"; }
         else g.phase = "final";
         return;
     }
@@ -70,7 +71,7 @@ export default {
     const giver = currentGiver(g);
     const myTeam = g.teams.findIndex((t) => t.players.includes(pid));
     const v = {
-      phase: g.phase, round: g.round, roundName: ROUNDS[g.round], perPlayer: g.perPlayer, seconds: g.seconds,
+      phase: g.phase, round: g.round, roundName: ROUNDS[g.round], roundCount: g.roundCount, perPlayer: g.perPlayer, seconds: g.seconds,
       teams: g.teams.map((t) => ({ name: t.name, players: t.players, score: t.score })),
       teamPtr: g.teamPtr, giver, myTeam, wrote: Object.keys(g.wrote), hatSize: g.hat.length + (g.cur ? 1 : 0),
       deadline: g.deadline, got: g.got, emptied: g.emptied, lastTeam: g.lastTeam,

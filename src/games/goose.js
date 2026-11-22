@@ -4,7 +4,7 @@ export default {
   start(R, roster, opts) {
     const pool = R.C.pool(R.C.goose, R.cheeky);
     const cat = opts.category && pool[opts.category] ? opts.category : R.pick(Object.keys(pool));
-    const word = R.pick(pool[cat]);
+    const word = R.fresh("goose", pool[cat], 1)[0];
     const n = Math.min(opts.geese === 2 && roster.length >= 7 ? 2 : 1, roster.length - 1);
     return {
       phase: "clues", cat, word,
